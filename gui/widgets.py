@@ -235,56 +235,69 @@ class MarkerRow(ctk.CTkFrame):
             self._tooltip = None
 
     def _bind_scroll_hide(self):
-        """Привязать уничтожение тултипа к событиям скролла."""
+        """Привязать уничтожение тултипа к событиям скролла.
+
+        Сохраняем funcid каждого binding'а, чтобы при unbind снимать
+        только СВОЙ обработчик, не трогая чужие (других MarkerRow).
+        """
+        self._scroll_canvas = None
+        self._scroll_funcids = {}
+        self._toplevel_ref = None
+        self._toplevel_funcids = {}
+
         # Ищем ближайший ScrollableFrame вверх по иерархии
         parent = self.master
         while parent is not None:
-            # CTkScrollableFrame содержит внутренний canvas
             if isinstance(parent, ctk.CTkScrollableFrame):
-                # Привязываем к событию скролла на внутреннем canvas
                 try:
                     canvas = parent._parent_canvas
-                    canvas.bind("<Configure>", self._on_scroll_event, add="+")
-                    # Привязываем к колёсику мыши
-                    canvas.bind("<MouseWheel>", self._on_scroll_event, add="+")
-                    canvas.bind("<Button-4>", self._on_scroll_event, add="+")
-                    canvas.bind("<Button-5>", self._on_scroll_event, add="+")
+                    fids = {}
+                    for event in ('<MouseWheel>', '<Button-4>', '<Button-5>', '<Configure>'):
+                        fid = canvas.bind(event, self._on_scroll_event, add="+")
+                        # fid может быть пустой строкой на некоторых сборках tk
+                        if fid:
+                            fids[event] = fid
                     self._scroll_canvas = canvas
+                    self._scroll_funcids = fids
                 except AttributeError:
-                    self._scroll_canvas = None
+                    pass
                 break
             parent = getattr(parent, 'master', None)
 
         # Привязываем к перемещению/сворачиванию главного окна
         try:
             toplevel = self.winfo_toplevel()
-            toplevel.bind("<Configure>", self._on_window_event, add="+")
-            toplevel.bind("<Unmap>", self._on_window_event, add="+")
+            tfids = {}
+            for event in ('<Configure>', '<Unmap>'):
+                fid = toplevel.bind(event, self._on_window_event, add="+")
+                if fid:
+                    tfids[event] = fid
             self._toplevel_ref = toplevel
+            self._toplevel_funcids = tfids
         except Exception:
-            self._toplevel_ref = None
+            pass
 
     def _unbind_scroll_hide(self):
-        """Убрать привязки скролла."""
+        """Снять только свои binding'и, не трогая привязки других виджетов."""
         canvas = getattr(self, '_scroll_canvas', None)
         if canvas is not None:
-            try:
-                canvas.unbind("<Configure>")
-                canvas.unbind("<MouseWheel>")
-                canvas.unbind("<Button-4>")
-                canvas.unbind("<Button-5>")
-            except Exception:
-                pass
+            for event, fid in getattr(self, '_scroll_funcids', {}).items():
+                try:
+                    canvas.unbind(event, fid)
+                except Exception:
+                    pass
             self._scroll_canvas = None
+            self._scroll_funcids = {}
 
         toplevel = getattr(self, '_toplevel_ref', None)
         if toplevel is not None:
-            try:
-                toplevel.unbind("<Configure>")
-                toplevel.unbind("<Unmap>")
-            except Exception:
-                pass
+            for event, fid in getattr(self, '_toplevel_funcids', {}).items():
+                try:
+                    toplevel.unbind(event, fid)
+                except Exception:
+                    pass
             self._toplevel_ref = None
+            self._toplevel_funcids = {}
 
     def _on_scroll_event(self, event):
         """При скролле — убираем тултип."""

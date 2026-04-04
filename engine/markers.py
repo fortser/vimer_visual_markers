@@ -99,17 +99,23 @@ def marker_1_4(text: str, prob: int) -> tuple[str, int]:
 
 
 def marker_1_6(text: str, prob: int) -> tuple[str, int]:
-    """Строчное «я»."""
+    """Строчное «я».
+
+    Заменяет местоимение Я на я в любой позиции:
+    в начале текста/строки, в середине и в конце.
+    (?<!\S) = позиция начала строки или после пробела/\n.
+    (?!\S)  = позиция конца строки или перед пробелом/\n.
+    """
     count = 0
 
     def repl(m):
         nonlocal count
         if _coin(prob):
             count += 1
-            return m.group(1) + 'я' + m.group(2)
+            return 'я'
         return m.group(0)
 
-    result = re.sub(r'(\s)Я(\s)', repl, text)
+    result = re.sub(r'(?<!\S)Я(?!\S)', repl, text)
     return result, count
 
 
@@ -139,7 +145,13 @@ def marker_2_1(text: str, prob: int) -> tuple[str, int]:
 
 
 def marker_2_2(text: str, prob: int) -> tuple[str, int]:
-    """Пробел перед точкой (не многоточием)."""
+    """Пробел перед точкой (не многоточием, не в числах, не в аббревиатурах).
+
+    Срабатывает только если точка завершает кириллическое слово или ')':
+      - исключает десятичные числа: 3.14, 2.0
+      - исключает расширения файлов и домены: test.txt, v1.2
+      - исключает аббревиатуры типа т.е., т.д. (после точки — буква вплотную)
+    """
     count = 0
 
     def repl(m):
@@ -149,7 +161,11 @@ def marker_2_2(text: str, prob: int) -> tuple[str, int]:
             return m.group(1) + ' .'
         return m.group(0)
 
-    result = re.sub(r'(\S)\.(?!\.)', repl, text)
+    # Перед точкой должно быть слово ≥ 3 кириллических букв или ')'.
+    # Это отсекает однобуквенные аббревиатуры (т., е., д.) и двухбуквенные (не., он.)
+    # (?!\.) — не многоточие
+    # (?![0-9a-zA-Zа-яёА-ЯЁ]) — после точки не идёт буква/цифра вплотную
+    result = re.sub(r'([а-яёА-ЯЁ]{3,}|\))\.(?!\.)(?![0-9a-zA-Zа-яёА-ЯЁ])', repl, text)
     return result, count
 
 
@@ -333,7 +349,7 @@ def marker_3_4(text: str, prob: int) -> tuple[str, int]:
 # ═══════════════════════════════════════════════════
 
 def marker_4_1(text: str, prob: int) -> tuple[str, int]:
-    """! → !!"""
+    """Одиночный ! → !! (только одиночные, не затрагивает уже удвоенные)."""
     count = 0
 
     def repl(m):
@@ -343,12 +359,19 @@ def marker_4_1(text: str, prob: int) -> tuple[str, int]:
             return '!!'
         return m.group(0)
 
-    result = re.sub(r'!(?!!)', repl, text)
+    # (?<!!) — не предшествует !, (?!!) — не следует !
+    # Таким образом захватываем только одиночные !
+    result = re.sub(r'(?<!!)!(?!!)', repl, text)
     return result, count
 
 
 def marker_4_2(text: str, prob: int) -> tuple[str, int]:
-    """! → !!!"""
+    """!! → !!! (только двойные, не одиночные).
+
+    Цепочка при включённых 4.1 + 4.2:
+      !  --[4.1]-->  !!  --[4.2]-->  !!!
+    Максимальный результат — три восклицания, не четыре.
+    """
     count = 0
 
     def repl(m):
@@ -358,12 +381,14 @@ def marker_4_2(text: str, prob: int) -> tuple[str, int]:
             return '!!!'
         return m.group(0)
 
-    result = re.sub(r'!(?!!)', repl, text)
+    # (?<!!) — не предшествует !, (?!!) — не следует !
+    # Захватываем ровно !! (не одиночные, не тройные и длиннее)
+    result = re.sub(r'(?<!!)!!(?!!)', repl, text)
     return result, count
 
 
 def marker_4_3(text: str, prob: int) -> tuple[str, int]:
-    """? → ??"""
+    """Одиночный ? → ?? (только одиночные, не затрагивает уже удвоенные)."""
     count = 0
 
     def repl(m):
@@ -373,12 +398,13 @@ def marker_4_3(text: str, prob: int) -> tuple[str, int]:
             return '??'
         return m.group(0)
 
-    result = re.sub(r'\?(?!\?)', repl, text)
+    # (?<!\?) — не предшествует ?, (?!\?) — не следует ?
+    result = re.sub(r'(?<!\?)\?(?!\?)', repl, text)
     return result, count
 
 
 def marker_4_4(text: str, prob: int) -> tuple[str, int]:
-    """? → ?!"""
+    """? → ?! (только одиночные ?, не те что уже ?? или ?!)."""
     count = 0
 
     def repl(m):
@@ -388,7 +414,8 @@ def marker_4_4(text: str, prob: int) -> tuple[str, int]:
             return '?!'
         return m.group(0)
 
-    result = re.sub(r'\?(?![!?])', repl, text)
+    # (?<!\?) — не предшествует ?, (?![!?]) — не следует ! или ?
+    result = re.sub(r'(?<!\?)\?(?![!?])', repl, text)
     return result, count
 
 
