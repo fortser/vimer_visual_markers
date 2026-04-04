@@ -35,7 +35,9 @@ def load_profile(path: str) -> dict:
 
 def save_profile(path: str, data: dict) -> None:
     """Сохраняет JSON-профиль."""
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    dirname = os.path.dirname(path)
+    if dirname:  # пустой dirname (bare filename) — makedirs не нужен
+        os.makedirs(dirname, exist_ok=True)
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 

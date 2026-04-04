@@ -559,17 +559,27 @@ def marker_5_1(text: str, prob: int) -> tuple[str, int]:
 
 
 def marker_5_2(text: str, prob: int) -> tuple[str, int]:
-    """Ёлочки → прямые кавычки."""
+    """Ёлочки/лапки → прямые кавычки.
+
+    Матчит как оригинальные «текст» так и лапки „текст" (результат 5.1).
+    Это позволяет 5.2 корректно работать при включённых обоих маркерах:
+      5.1 (prob=100) конвертирует все «» в лапки „";
+      5.2 затем конвертирует лапки "" в прямые "".
+    При 5.1=100, 5.2=50 — часть лапок остаётся, часть становится прямыми.
+    """
     count = 0
 
     def repl(m):
         nonlocal count
         if _coin(prob):
             count += 1
-            return '"' + m.group(1) + '"'
+            # group(1) — содержимое из «», group(2) — из „"
+            content = m.group(1) if m.group(1) is not None else m.group(2)
+            return '"' + content + '"'
         return m.group(0)
 
-    result = re.sub(r'\u00AB(.+?)\u00BB', repl, text)
+    # Матчим оба вида кавычек: «текст» и „текст"
+    result = re.sub(r'\u00AB(.+?)\u00BB|\u201E(.+?)\u201C', repl, text)
     return result, count
 
 
@@ -771,21 +781,27 @@ def marker_6_4(text: str, prob: int) -> tuple[str, int]:
 
 
 def marker_6_5(text: str, prob: int) -> tuple[str, int]:
-    """Удвоение слова из whitelist: очень, давно, нет, да, ну, так, вот, уже, ещё."""
+    """Удвоение слова из whitelist: очень, давно, нет, да, ну, так, вот, уже, ещё.
+
+    Использует lookahead/lookbehind вместо захватывающих групп для пробелов,
+    чтобы корректно срабатывать в начале и конце текста/строки.
+    (?<!\S) = позиция начала строки или после пробела/\n.
+    (?!\S)  = позиция конца строки или перед пробелом/\n.
+    """
     count = 0
     whitelist = ['очень', 'давно', 'нет', 'да', 'ну', 'так', 'вот', 'уже', 'ещё']
     pattern_str = '|'.join(whitelist)
 
     def repl(m):
         nonlocal count
-        word = m.group(2)
+        word = m.group(0)
         if word.lower() in whitelist and _coin(prob):
             count += 1
-            return m.group(1) + word + ' ' + word + m.group(3)
-        return m.group(0)
+            return word + ' ' + word  # пробелы вокруг остаются в тексте
+        return word
 
     result = re.sub(
-        r'(\s)(' + pattern_str + r')(\s)',
+        r'(?<!\S)(' + pattern_str + r')(?!\S)',
         repl, text, flags=re.IGNORECASE,
     )
     return result, count

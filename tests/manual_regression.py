@@ -157,6 +157,89 @@ check("4.3+4.4: нет ??!?",
 
 print()
 print("=" * 60)
+print("СРЕДНИЙ ПРИОРИТЕТ — baseline (ожидаемые провалы до правок)")
+print("=" * 60)
+
+from engine.markers import marker_5_1, marker_5_2, marker_6_5
+from engine.markers import marker_3_4, marker_5_3, marker_5_4, marker_5_5
+from engine.registry import MARKER_REGISTRY, get_default_profile
+from utils import load_profile, PROFILES_DIR
+import os
+
+# ── C2: save_profile с пустым dirname ────────────────────────
+print()
+print("C2: save_profile — пустой dirname")
+import tempfile
+from utils import save_profile
+try:
+    tmp = tempfile.mktemp(suffix='.json')
+    bare = os.path.basename(tmp)
+    orig_dir = os.getcwd()
+    tmp_dir = tempfile.mkdtemp()
+    os.chdir(tmp_dir)
+    save_profile(bare, {"name": "test"})
+    check("C2: save_profile с bare filename не падает", True, True)
+    os.remove(bare)
+    os.chdir(orig_dir)
+    os.rmdir(tmp_dir)
+except Exception as e:
+    os.chdir(orig_dir)
+    check("C2: save_profile с bare filename не падает", False, True,
+          msg=str(e))
+
+# ── B8: registry default_prob совпадают с default.json ───────
+print()
+print("B8: registry vs default.json")
+json_default = load_profile(str(PROFILES_DIR / 'default.json'))['markers']
+reg_default = get_default_profile()
+mismatches = [(mid, reg_default[mid], json_default[mid])
+              for mid in reg_default if reg_default[mid] != json_default.get(mid)]
+check("B8: registry default_prob совпадают с default.json",
+      condition=lambda x: len(x) == 0, got=mismatches,
+      msg=f"расхождений: {len(mismatches)} — {mismatches[:3]}...")
+
+# ── B3: 3.4 работает после 5.3/5.4/5.5 ──────────────────────
+print()
+print("B3: маркер 3.4 не мёртв при 5.3/5.4/5.5")
+from engine import TextProcessor
+text_dash = '\u0441\u043b\u043e\u0432\u043e \u2014 \u0434\u0440\u0443\u0433\u043e\u0435'
+random.seed(1)
+p_b3 = TextProcessor({"5.3": 100, "5.4": 100, "5.5": 100, "3.4": 100})
+r_b3 = p_b3.process(text_dash)
+stats_b3 = p_b3.get_stats()
+check("B3: 3.4 срабатывает при включённых 5.3/5.4/5.5",
+      condition=lambda x: x.get("3.4", 0) > 0, got=stats_b3,
+      msg=f"stats={stats_b3}, result={repr(r_b3)}")
+
+# ── B6: marker_6_5 в начале/конце строки ─────────────────────
+print()
+print("B6: marker_6_5 — начало/конец строки")
+random.seed(1)
+r, c = marker_6_5("\u043e\u0447\u0435\u043d\u044c \u0445\u043e\u0440\u043e\u0448\u0438\u0439", 100)
+check("B6: 'очень' в начале строки удваивается",
+      condition=lambda x: x > 0, got=c,
+      msg=f"count=0, result={repr(r)}")
+
+random.seed(1)
+r, c = marker_6_5("\u0445\u043e\u0440\u043e\u0448\u0438\u0439 \u043e\u0447\u0435\u043d\u044c", 100)
+check("B6: 'очень' в конце строки удваивается",
+      condition=lambda x: x > 0, got=c,
+      msg=f"count=0, result={repr(r)}")
+
+# ── B2: 5.1 + 5.2 при prob=100 ───────────────────────────────
+print()
+print("B2: 5.1 + 5.2 смешение кавычек")
+text_q = '\u041e\u043d \u0441\u043a\u0430\u0437\u0430\u043b \u00ab\u043f\u0440\u0438\u0432\u0435\u0442\u00bb \u0438 \u00ab\u043f\u043e\u043a\u0430\u00bb \u0438 \u00ab\u0441\u043f\u0430\u0441\u0438\u0431\u043e\u00bb'
+random.seed(1)
+r51, c51 = marker_5_1(text_q, 100)
+random.seed(1)
+r52, c52 = marker_5_2(r51, 100)
+check("B2: 5.2 срабатывает после 5.1 при prob=100/100",
+      condition=lambda x: x > 0, got=c52,
+      msg=f"c51={c51}, c52={c52}, result={repr(r52)}")
+
+print()
+print("=" * 60)
 print("ИТОГ")
 print("=" * 60)
 total = PASS + FAIL

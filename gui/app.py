@@ -203,9 +203,10 @@ class App(ctk.CTk):
             self.right_panel,
             font=ctk.CTkFont(family="Consolas", size=13),
             wrap="word",
-            state="disabled",
+            fg_color=("gray92", "gray16"),  # чуть темнее input — визуальный индикатор readonly
         )
         self.output_text.pack(fill="both", expand=True, padx=8, pady=(0, 4))
+        self._make_readonly(self.output_text)
 
         # Нижняя панель
         bottom_frame = ctk.CTkFrame(self.right_panel, fg_color="transparent")
@@ -227,6 +228,38 @@ class App(ctk.CTk):
 
         # Горячие клавиши
         self.bind("<Control-Return>", lambda e: self._process_text())
+
+    # ─── Readonly TextBox ─────────────────
+    @staticmethod
+    def _make_readonly(textbox: ctk.CTkTextbox) -> None:
+        """Запрещает редактирование textbox, сохраняя выделение и копирование.
+
+        Пользователь может: выделять текст мышью, Ctrl+A, Ctrl+C,
+        навигировать стрелками, Page Up/Down.
+        Пользователь не может: вводить символы, вставлять, перетаскивать.
+        """
+        def block_input(event):
+            # Разрешаем навигационные и служебные клавиши
+            nav_keys = {
+                'Left', 'Right', 'Up', 'Down', 'Home', 'End',
+                'Prior', 'Next',
+                'Control_L', 'Control_R', 'Shift_L', 'Shift_R',
+                'Alt_L', 'Alt_R', 'caps_lock',
+                'F1', 'F2', 'F3', 'F4', 'F5', 'F6',
+                'F7', 'F8', 'F9', 'F10', 'F11', 'F12',
+            }
+            if event.keysym in nav_keys:
+                return
+            # Разрешаем Ctrl+C (копирование) и Ctrl+A (выделить всё)
+            if event.state & 0x4:  # Ctrl нажат
+                if event.keysym.lower() in ('c', 'a'):
+                    return
+            return "break"
+
+        # CTkTextbox корректно проксирует bind на внутренний tk.Text
+        textbox.bind("<Key>", block_input)
+        textbox.bind("<<Paste>>", lambda e: "break")
+        textbox.bind("<<Drop>>", lambda e: "break")
 
     # ─── Действия с категориями ───────────
     def _expand_all(self):
@@ -317,11 +350,9 @@ class App(ctk.CTk):
         stats = processor.get_stats()
         total = processor.get_total_changes()
 
-        # Выводим результат
-        self.output_text.configure(state="normal")
+        # Выводим результат (state всегда normal — readonly через binding)
         self.output_text.delete("1.0", "end")
         self.output_text.insert("1.0", result)
-        self.output_text.configure(state="disabled")
 
         # Статистика
         active_markers = len(stats)
