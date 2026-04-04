@@ -10,7 +10,7 @@ from engine import (
     TextProcessor, CATEGORIES,
     get_markers_by_category, get_default_profile,
 )
-from engine.registry import get_marker_by_id
+from engine.registry import MARKER_REGISTRY, get_marker_by_id
 from gui.widgets import CategoryFrame, ProfileBar
 from utils import (
     read_text_file, write_text_file, load_profile, save_profile,
@@ -20,15 +20,15 @@ from utils import (
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
-APP_NAME = "\u0412\u0418\u041C\u0415\u0420 \u2014 \u0412\u0438\u0437\u0443\u0430\u043B\u044C\u043D\u044B\u0435 \u041C\u0430\u0440\u043A\u0435\u0440\u044B \u0415\u0441\u0442\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u043E\u0439 \u0420\u0435\u0447\u0438"
+APP_NAME = "ВИМЕР \u2014 Визуальные Маркеры Естественной Речи"
 
 
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title(APP_NAME)
-        self.geometry("1280x780")
-        self.minsize(1000, 620)
+        self.geometry("1400x780")
+        self.minsize(1100, 620)
 
         self.current_profile_name = "default"
         self.category_frames: list[CategoryFrame] = []
@@ -100,8 +100,8 @@ class App(ctk.CTk):
         self.main_pane = ctk.CTkFrame(self, fg_color="transparent")
         self.main_pane.pack(fill="both", expand=True, padx=6, pady=6)
 
-        # === ЛЕВАЯ ПАНЕЛЬ (маркеры) ===
-        self.left_panel = ctk.CTkFrame(self.main_pane, width=420)
+        # === ЛЕВАЯ ПАНЕЛЬ (маркеры) — расширена до 540px ===
+        self.left_panel = ctk.CTkFrame(self.main_pane, width=540)
         self.left_panel.pack(side="left", fill="y", padx=(0, 6))
         self.left_panel.pack_propagate(False)
 
@@ -140,10 +140,11 @@ class App(ctk.CTk):
             command=self._reset_all_to_zero,
         ).pack(side="right")
 
-        # Скролл-контейнер для категорий
+        # Скролл-контейнер для категорий (динамический счётчик)
+        total_markers = len(MARKER_REGISTRY)
         self.markers_scroll = ctk.CTkScrollableFrame(
             self.left_panel,
-            label_text="Маркеры (51)",
+            label_text=f"Маркеры ({total_markers})",
             label_font=ctk.CTkFont(size=13, weight="bold"),
         )
         self.markers_scroll.pack(fill="both", expand=True, padx=4, pady=4)
@@ -357,6 +358,7 @@ class App(ctk.CTk):
         try:
             data = load_profile(str(path))
             markers = data.get("markers", {})
+            self._reset_all_to_zero()
             self._set_values(markers)
             self.mult_var.set(data.get("multiplier", 1.0))
             self.current_profile_name = name

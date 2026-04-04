@@ -13,8 +13,6 @@ class MarkerRow(ctk.CTkFrame):
     """
     Одна строка маркера:
     [✓] ID Имя          [===slider===] [ 15 % ]
-    
-    Spinbox-поле справа — заметное, с подписью %, ширина 65px.
     """
 
     def __init__(self, master, marker: MarkerInfo, **kwargs):
@@ -48,15 +46,15 @@ class MarkerRow(ctk.CTkFrame):
         self.label.bind("<Enter>", self._show_tooltip)
         self.label.bind("<Leave>", self._hide_tooltip)
 
-        # 2: Slider
+        # 2: Slider (расширен до 150px)
         self.slider = ctk.CTkSlider(
             self, from_=0, to=100, number_of_steps=100,
-            variable=self._value, width=120,
+            variable=self._value, width=150,
             command=self._on_slider_move,
         )
         self.slider.grid(row=0, column=2, padx=(0, 8), sticky="e")
 
-        # 3: Entry (числовое поле) — УВЕЛИЧЕННОЕ И ЗАМЕТНОЕ
+        # 3: Entry (числовое поле)
         self.entry_var = ctk.StringVar(value=str(marker.default_prob))
         self.entry = ctk.CTkEntry(
             self,
@@ -84,7 +82,9 @@ class MarkerRow(ctk.CTkFrame):
         # Синхронизация slider -> entry
         self._value.trace_add("write", self._on_var_changed)
 
+        # ── Тултип ──
         self._tooltip = None
+        self._tooltip_hide_timer = None
         self._on_toggle()
 
     def _on_toggle(self):
@@ -173,28 +173,126 @@ class MarkerRow(ctk.CTkFrame):
         self._updating = False
         self._on_toggle()
 
+    # ── Тултип (исправленный) ──────────────
+
     def _show_tooltip(self, event):
-        if self._tooltip:
-            return
+        """Показать тултип с описанием маркера."""
+        # Убираем старый, если есть
+        self._destroy_tooltip()
+
         x = event.x_root + 15
         y = event.y_root + 10
+
         self._tooltip = ctk.CTkToplevel(self)
         self._tooltip.wm_overrideredirect(True)
         self._tooltip.wm_geometry(f"+{x}+{y}")
         self._tooltip.attributes("-topmost", True)
+
+        # На некоторых системах CTkToplevel показывает анимацию —
+        # отключаем через withdraw/deiconify
+        self._tooltip.withdraw()
+
         label = ctk.CTkLabel(
             self._tooltip, text=self.marker.description,
             font=ctk.CTkFont(size=11),
-            wraplength=350, justify="left",
+            wraplength=400, justify="left",
             fg_color=("gray90", "gray20"),
-            corner_radius=6, padx=8, pady=4,
+            corner_radius=6, padx=10, pady=6,
         )
         label.pack()
 
+        self._tooltip.deiconify()
+
+        # Привязываем скрытие к любому клику внутри тултипа
+        self._tooltip.bind("<Button-1>", lambda e: self._destroy_tooltip())
+
+        # Автоскрытие через 3 секунды
+        self._tooltip_hide_timer = self.after(3000, self._destroy_tooltip)
+
+        # Привязываем скрытие к скроллу родительского контейнера
+        self._bind_scroll_hide()
+
     def _hide_tooltip(self, event):
-        if self._tooltip:
-            self._tooltip.destroy()
+        """Скрыть тултип при уходе курсора с label."""
+        self._destroy_tooltip()
+
+    def _destroy_tooltip(self):
+        """Безопасное уничтожение тултипа."""
+        # Отменяем таймер
+        if self._tooltip_hide_timer is not None:
+            self.after_cancel(self._tooltip_hide_timer)
+            self._tooltip_hide_timer = None
+
+        # Убираем привязки скролла
+        self._unbind_scroll_hide()
+
+        # Уничтожаем окно
+        if self._tooltip is not None:
+            try:
+                self._tooltip.destroy()
+            except Exception:
+                pass
             self._tooltip = None
+
+    def _bind_scroll_hide(self):
+        """Привязать уничтожение тултипа к событиям скролла."""
+        # Ищем ближайший ScrollableFrame вверх по иерархии
+        parent = self.master
+        while parent is not None:
+            # CTkScrollableFrame содержит внутренний canvas
+            if isinstance(parent, ctk.CTkScrollableFrame):
+                # Привязываем к событию скролла на внутреннем canvas
+                try:
+                    canvas = parent._parent_canvas
+                    canvas.bind("<Configure>", self._on_scroll_event, add="+")
+                    # Привязываем к колёсику мыши
+                    canvas.bind("<MouseWheel>", self._on_scroll_event, add="+")
+                    canvas.bind("<Button-4>", self._on_scroll_event, add="+")
+                    canvas.bind("<Button-5>", self._on_scroll_event, add="+")
+                    self._scroll_canvas = canvas
+                except AttributeError:
+                    self._scroll_canvas = None
+                break
+            parent = getattr(parent, 'master', None)
+
+        # Привязываем к перемещению/сворачиванию главного окна
+        try:
+            toplevel = self.winfo_toplevel()
+            toplevel.bind("<Configure>", self._on_window_event, add="+")
+            toplevel.bind("<Unmap>", self._on_window_event, add="+")
+            self._toplevel_ref = toplevel
+        except Exception:
+            self._toplevel_ref = None
+
+    def _unbind_scroll_hide(self):
+        """Убрать привязки скролла."""
+        canvas = getattr(self, '_scroll_canvas', None)
+        if canvas is not None:
+            try:
+                canvas.unbind("<Configure>")
+                canvas.unbind("<MouseWheel>")
+                canvas.unbind("<Button-4>")
+                canvas.unbind("<Button-5>")
+            except Exception:
+                pass
+            self._scroll_canvas = None
+
+        toplevel = getattr(self, '_toplevel_ref', None)
+        if toplevel is not None:
+            try:
+                toplevel.unbind("<Configure>")
+                toplevel.unbind("<Unmap>")
+            except Exception:
+                pass
+            self._toplevel_ref = None
+
+    def _on_scroll_event(self, event):
+        """При скролле — убираем тултип."""
+        self._destroy_tooltip()
+
+    def _on_window_event(self, event):
+        """При перемещении/сворачивании окна — убираем тултип."""
+        self._destroy_tooltip()
 
 
 class CategoryFrame(ctk.CTkFrame):

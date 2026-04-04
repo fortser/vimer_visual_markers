@@ -1,6 +1,18 @@
 """
-Реализация 51 маркера: каждая функция принимает текст и вероятность,
+Реализация 51 маркера по спецификации 8.5.
+Каждая функция принимает текст и вероятность,
 возвращает (модифицированный текст, количество применений).
+
+Нумерация строго соответствует спецификации:
+  1.1-1.4, 1.6
+  2.1-2.9
+  3.1-3.4
+  4.1-4.12
+  5.1-5.9
+  6.1-6.5
+  7.2-7.4
+  8.7-8.8
+  10.1, 10.4
 """
 
 import random
@@ -22,11 +34,11 @@ def _sentences(text: str) -> list[str]:
 
 
 # ═══════════════════════════════════════════════════
-# 1. РЕГИСТР И КЕЙС
+# 1. РЕГИСТР И КАПИТАЛИЗАЦИЯ
 # ═══════════════════════════════════════════════════
 
 def marker_1_1(text: str, prob: int) -> tuple[str, int]:
-    """Строчная после точки."""
+    """Строчная буква в начале предложения (после . ! ?)."""
     count = 0
 
     def repl(m):
@@ -36,12 +48,12 @@ def marker_1_1(text: str, prob: int) -> tuple[str, int]:
             return m.group(1) + ' ' + m.group(2).lower()
         return m.group(0)
 
-    result = re.sub(r'(\. )([А-ЯЁ])', repl, text)
+    result = re.sub(r'([.!?])\s+([А-ЯЁ])', repl, text)
     return result, count
 
 
 def marker_1_2(text: str, prob: int) -> tuple[str, int]:
-    """Строчная в начале абзаца."""
+    """Строчная буква в начале абзаца."""
     count = 0
     lines = text.split('\n')
     for i, line in enumerate(lines):
@@ -55,7 +67,7 @@ def marker_1_2(text: str, prob: int) -> tuple[str, int]:
 
 
 def marker_1_3(text: str, prob: int) -> tuple[str, int]:
-    """Двойная заглавная: ПОтом, НАверное."""
+    """Две заглавные буквы в начале слова (слово ≥ 3 букв): ПОтом, НАверное."""
     count = 0
 
     def repl(m):
@@ -86,8 +98,8 @@ def marker_1_4(text: str, prob: int) -> tuple[str, int]:
     return ' '.join(words), count
 
 
-def marker_1_5(text: str, prob: int) -> tuple[str, int]:
-    """Строчная я."""
+def marker_1_6(text: str, prob: int) -> tuple[str, int]:
+    """Строчное «я»."""
     count = 0
 
     def repl(m):
@@ -142,7 +154,7 @@ def marker_2_2(text: str, prob: int) -> tuple[str, int]:
 
 
 def marker_2_3(text: str, prob: int) -> tuple[str, int]:
-    """Пробел перед !?"""
+    """Пробел перед ?/!"""
     count = 0
 
     def repl(m):
@@ -157,6 +169,21 @@ def marker_2_3(text: str, prob: int) -> tuple[str, int]:
 
 
 def marker_2_4(text: str, prob: int) -> tuple[str, int]:
+    """Пробел перед :/; (объединённый маркер)."""
+    count = 0
+
+    def repl(m):
+        nonlocal count
+        if _coin(prob):
+            count += 1
+            return m.group(1) + ' ' + m.group(2)
+        return m.group(0)
+
+    result = re.sub(r'(\S)([:;])', repl, text)
+    return result, count
+
+
+def marker_2_5(text: str, prob: int) -> tuple[str, int]:
     """Двойной пробел между словами."""
     count = 0
 
@@ -171,17 +198,7 @@ def marker_2_4(text: str, prob: int) -> tuple[str, int]:
     return result, count
 
 
-def marker_2_5(text: str, prob: int) -> tuple[str, int]:
-    """Пробел перед двоеточием."""
-    return _insert_space_before(text, ':', prob)
-
-
 def marker_2_6(text: str, prob: int) -> tuple[str, int]:
-    """Пробел перед точкой с запятой."""
-    return _insert_space_before(text, ';', prob)
-
-
-def marker_2_7(text: str, prob: int) -> tuple[str, int]:
     """Пробел после открывающей скобки."""
     count = 0
 
@@ -196,7 +213,7 @@ def marker_2_7(text: str, prob: int) -> tuple[str, int]:
     return result, count
 
 
-def marker_2_8(text: str, prob: int) -> tuple[str, int]:
+def marker_2_7(text: str, prob: int) -> tuple[str, int]:
     """Пробел перед закрывающей скобкой."""
     count = 0
 
@@ -211,18 +228,33 @@ def marker_2_8(text: str, prob: int) -> tuple[str, int]:
     return result, count
 
 
-def marker_2_9(text: str, prob: int) -> tuple[str, int]:
-    """Пробел перед закрывающей кавычкой."""
+def marker_2_8(text: str, prob: int) -> tuple[str, int]:
+    """Пробел после открывающей кавычки «."""
     count = 0
 
     def repl(m):
         nonlocal count
         if _coin(prob):
             count += 1
-            return m.group(1) + ' ' + m.group(2)
+            return '\u00AB ' + m.group(1)
         return m.group(0)
 
-    result = re.sub(r'(\S)([>\u00BB\u201D])', repl, text)
+    result = re.sub(r'\u00AB(\S)', repl, text)
+    return result, count
+
+
+def marker_2_9(text: str, prob: int) -> tuple[str, int]:
+    """Пробел перед закрывающей кавычкой »."""
+    count = 0
+
+    def repl(m):
+        nonlocal count
+        if _coin(prob):
+            count += 1
+            return m.group(1) + ' \u00BB'
+        return m.group(0)
+
+    result = re.sub(r'(\S)\u00BB', repl, text)
     return result, count
 
 
@@ -261,37 +293,38 @@ def marker_3_2(text: str, prob: int) -> tuple[str, int]:
 
 
 def marker_3_3(text: str, prob: int) -> tuple[str, int]:
-    """Слипание тире со словом."""
+    """Удаляет пробел после ?/!"""
     count = 0
 
     def repl(m):
         nonlocal count
         if _coin(prob):
             count += 1
-            if random.choice([True, False]):
-                return m.group(1) + '\u2014 ' + m.group(2)
-            else:
-                return m.group(1) + ' \u2014' + m.group(2)
+            return m.group(1)
         return m.group(0)
 
-    result = re.sub(r'(\S) \u2014 (\S)', repl, text)
+    result = re.sub(r'([?!]) (?=[А-ЯЁа-яё])', repl, text)
     return result, count
 
 
 def marker_3_4(text: str, prob: int) -> tuple[str, int]:
-    """Пробел внутри длинного слова."""
+    """Слипание тире с соседними словами."""
     count = 0
 
     def repl(m):
         nonlocal count
-        word = m.group(0)
-        if len(word) >= 6 and _coin(prob):
-            pos = random.randint(2, len(word) - 3)
+        if _coin(prob):
             count += 1
-            return word[:pos] + ' ' + word[pos:]
-        return word
+            variant = random.choice(['left', 'right', 'both'])
+            if variant == 'left':
+                return m.group(1) + '\u2014 ' + m.group(2)
+            elif variant == 'right':
+                return m.group(1) + ' \u2014' + m.group(2)
+            else:
+                return m.group(1) + '\u2014' + m.group(2)
+        return m.group(0)
 
-    result = re.sub(r'[а-яёА-ЯЁ]{6,}', repl, text)
+    result = re.sub(r'(\S) \u2014 (\S)', repl, text)
     return result, count
 
 
@@ -300,7 +333,7 @@ def marker_3_4(text: str, prob: int) -> tuple[str, int]:
 # ═══════════════════════════════════════════════════
 
 def marker_4_1(text: str, prob: int) -> tuple[str, int]:
-    """! -> !!"""
+    """! → !!"""
     count = 0
 
     def repl(m):
@@ -315,7 +348,7 @@ def marker_4_1(text: str, prob: int) -> tuple[str, int]:
 
 
 def marker_4_2(text: str, prob: int) -> tuple[str, int]:
-    """! -> !!!"""
+    """! → !!!"""
     count = 0
 
     def repl(m):
@@ -330,7 +363,7 @@ def marker_4_2(text: str, prob: int) -> tuple[str, int]:
 
 
 def marker_4_3(text: str, prob: int) -> tuple[str, int]:
-    """? -> ??"""
+    """? → ??"""
     count = 0
 
     def repl(m):
@@ -345,7 +378,7 @@ def marker_4_3(text: str, prob: int) -> tuple[str, int]:
 
 
 def marker_4_4(text: str, prob: int) -> tuple[str, int]:
-    """? -> ?!"""
+    """? → ?!"""
     count = 0
 
     def repl(m):
@@ -360,37 +393,7 @@ def marker_4_4(text: str, prob: int) -> tuple[str, int]:
 
 
 def marker_4_5(text: str, prob: int) -> tuple[str, int]:
-    """Многоточие -> две точки."""
-    count = 0
-
-    def repl(m):
-        nonlocal count
-        if _coin(prob):
-            count += 1
-            return '..'
-        return m.group(0)
-
-    result = re.sub(r'\u2026|\.{3}', repl, text)
-    return result, count
-
-
-def marker_4_6(text: str, prob: int) -> tuple[str, int]:
-    """Многоточие -> 4-5 точек."""
-    count = 0
-
-    def repl(m):
-        nonlocal count
-        if _coin(prob):
-            count += 1
-            return '.' * random.randint(4, 5)
-        return m.group(0)
-
-    result = re.sub(r'\u2026|\.{3}', repl, text)
-    return result, count
-
-
-def marker_4_7(text: str, prob: int) -> tuple[str, int]:
-    """Точка -> многоточие."""
+    """Многоточие вместо точки: . → ..."""
     count = 0
 
     def repl(m):
@@ -404,8 +407,50 @@ def marker_4_7(text: str, prob: int) -> tuple[str, int]:
     return result, count
 
 
+def marker_4_6(text: str, prob: int) -> tuple[str, int]:
+    """Многоточие → две точки."""
+    count = 0
+
+    def repl(m):
+        nonlocal count
+        if _coin(prob):
+            count += 1
+            return '..'
+        return m.group(0)
+
+    result = re.sub(r'\u2026|\.{3}', repl, text)
+    return result, count
+
+
+def marker_4_7(text: str, prob: int) -> tuple[str, int]:
+    """Многоточие → 4-5 точек."""
+    count = 0
+
+    def repl(m):
+        nonlocal count
+        if _coin(prob):
+            count += 1
+            return '.' * random.randint(4, 5)
+        return m.group(0)
+
+    result = re.sub(r'\u2026|\.{3}', repl, text)
+    return result, count
+
+
 def marker_4_8(text: str, prob: int) -> tuple[str, int]:
-    """Пропуск запятой перед но/а/и."""
+    """Пропуск точки в конце абзаца."""
+    count = 0
+    lines = text.split('\n')
+    for i, line in enumerate(lines):
+        stripped = line.rstrip()
+        if stripped.endswith('.') and not stripped.endswith('..') and _coin(prob):
+            lines[i] = stripped[:-1]
+            count += 1
+    return '\n'.join(lines), count
+
+
+def marker_4_9(text: str, prob: int) -> tuple[str, int]:
+    """Пропуск запятой перед но/а/что/который."""
     count = 0
 
     def repl(m):
@@ -415,26 +460,29 @@ def marker_4_8(text: str, prob: int) -> tuple[str, int]:
             return ' ' + m.group(1)
         return m.group(0)
 
-    result = re.sub(r', (но|а|и)(?=\s)', repl, text)
+    result = re.sub(r', (но|а|что|который|которая|которое|которые)(?=\s)', repl, text)
     return result, count
 
 
-def marker_4_9(text: str, prob: int) -> tuple[str, int]:
-    """Лишняя запятая после ну."""
+def marker_4_10(text: str, prob: int) -> tuple[str, int]:
+    """Лишняя запятая после ну/вот/так."""
     count = 0
 
     def repl(m):
         nonlocal count
         if _coin(prob):
             count += 1
-            return m.group(1) + 'у, '
+            return m.group(1) + m.group(2) + ', '
         return m.group(0)
 
-    result = re.sub(r'((?:^|(?<=\s))[Нн])у (?!,)', repl, text)
+    result = re.sub(
+        r'((?:^|(?<=\s)))([Нн]у|[Вв]от|[Тт]ак) (?!,)',
+        repl, text,
+    )
     return result, count
 
 
-def marker_4_10(text: str, prob: int) -> tuple[str, int]:
+def marker_4_11(text: str, prob: int) -> tuple[str, int]:
     """Двойная точка."""
     count = 0
 
@@ -449,7 +497,7 @@ def marker_4_10(text: str, prob: int) -> tuple[str, int]:
     return result, count
 
 
-def marker_4_11(text: str, prob: int) -> tuple[str, int]:
+def marker_4_12(text: str, prob: int) -> tuple[str, int]:
     """Оксфордская запятая перед и."""
     count = 0
 
@@ -464,24 +512,12 @@ def marker_4_11(text: str, prob: int) -> tuple[str, int]:
     return result, count
 
 
-def marker_4_12(text: str, prob: int) -> tuple[str, int]:
-    """Пропуск конечной точки абзаца."""
-    count = 0
-    lines = text.split('\n')
-    for i, line in enumerate(lines):
-        stripped = line.rstrip()
-        if stripped.endswith('.') and not stripped.endswith('..') and _coin(prob):
-            lines[i] = stripped[:-1]
-            count += 1
-    return '\n'.join(lines), count
-
-
 # ═══════════════════════════════════════════════════
 # 5. КАВЫЧКИ, ТИРЕ, ТИПОГРАФИКА
 # ═══════════════════════════════════════════════════
 
 def marker_5_1(text: str, prob: int) -> tuple[str, int]:
-    """Ёлочки -> лапки."""
+    """Ёлочки → лапки."""
     count = 0
 
     def repl(m):
@@ -496,7 +532,7 @@ def marker_5_1(text: str, prob: int) -> tuple[str, int]:
 
 
 def marker_5_2(text: str, prob: int) -> tuple[str, int]:
-    """Ёлочки -> прямые кавычки."""
+    """Ёлочки → прямые кавычки."""
     count = 0
 
     def repl(m):
@@ -511,7 +547,7 @@ def marker_5_2(text: str, prob: int) -> tuple[str, int]:
 
 
 def marker_5_3(text: str, prob: int) -> tuple[str, int]:
-    """Длинное тире -> дефис."""
+    """Длинное тире → дефис."""
     count = 0
 
     def repl(m):
@@ -526,7 +562,7 @@ def marker_5_3(text: str, prob: int) -> tuple[str, int]:
 
 
 def marker_5_4(text: str, prob: int) -> tuple[str, int]:
-    """Длинное тире -> короткое."""
+    """Длинное тире → короткое."""
     count = 0
 
     def repl(m):
@@ -541,7 +577,37 @@ def marker_5_4(text: str, prob: int) -> tuple[str, int]:
 
 
 def marker_5_5(text: str, prob: int) -> tuple[str, int]:
-    """ё -> е."""
+    """Длинное тире → дефис с пробелами: ' - '."""
+    count = 0
+
+    def repl(m):
+        nonlocal count
+        if _coin(prob):
+            count += 1
+            return m.group(1) + ' - ' + m.group(2)
+        return m.group(0)
+
+    result = re.sub(r'(\S) \u2014 (\S)', repl, text)
+    return result, count
+
+
+def marker_5_6(text: str, prob: int) -> tuple[str, int]:
+    """Тире/пробелы вместо дефиса в составных словах: кто-то → кто - то."""
+    count = 0
+
+    def repl(m):
+        nonlocal count
+        if _coin(prob):
+            count += 1
+            return m.group(1) + ' - ' + m.group(2)
+        return m.group(0)
+
+    result = re.sub(r'([а-яёА-ЯЁ]+)-([а-яёА-ЯЁ]+)', repl, text)
+    return result, count
+
+
+def marker_5_7(text: str, prob: int) -> tuple[str, int]:
+    """ё → е."""
     count = 0
     result = []
     for ch in text:
@@ -556,8 +622,12 @@ def marker_5_5(text: str, prob: int) -> tuple[str, int]:
     return ''.join(result), count
 
 
-def marker_5_6(text: str, prob: int) -> tuple[str, int]:
-    """Пропуск закрывающей скобки (макс 1 раз)."""
+def marker_5_8(text: str, prob: int) -> tuple[str, int]:
+    """Пропуск закрывающей скобки (макс 1 раз, при ≥3 парах)."""
+    pairs = re.findall(r'\([^)]+\)', text)
+    if len(pairs) < 3:
+        return text, 0
+
     count = 0
 
     def repl(m):
@@ -571,8 +641,12 @@ def marker_5_6(text: str, prob: int) -> tuple[str, int]:
     return result, count
 
 
-def marker_5_7(text: str, prob: int) -> tuple[str, int]:
-    """Пропуск закрывающей кавычки (макс 1 раз)."""
+def marker_5_9(text: str, prob: int) -> tuple[str, int]:
+    """Пропуск закрывающей кавычки (макс 1 раз, при ≥3 парах)."""
+    pairs = re.findall(r'\u00AB.+?\u00BB', text)
+    if len(pairs) < 3:
+        return text, 0
+
     count = 0
 
     def repl(m):
@@ -586,42 +660,55 @@ def marker_5_7(text: str, prob: int) -> tuple[str, int]:
     return result, count
 
 
-def marker_5_8(text: str, prob: int) -> tuple[str, int]:
-    """Несогласованные кавычки (макс 2 раза)."""
-    count = 0
-
-    def repl(m):
-        nonlocal count
-        if count < 2 and _coin(prob):
-            count += 1
-            return '\u00AB' + m.group(1) + '"'
-        return m.group(0)
-
-    result = re.sub(r'\u00AB(.+?)\u00BB', repl, text)
-    return result, count
-
-
-def marker_5_9(text: str, prob: int) -> tuple[str, int]:
-    """Дефис вместо тире в числовых диапазонах."""
-    count = 0
-
-    def repl(m):
-        nonlocal count
-        if _coin(prob):
-            count += 1
-            return m.group(1) + '-' + m.group(2)
-        return m.group(0)
-
-    result = re.sub(r'(\d)[\u2013\u2014](\d)', repl, text)
-    return result, count
-
-
 # ═══════════════════════════════════════════════════
-# 6. КЛАВИАТУРНЫЕ ОПЕЧАТКИ
+# 6. ОПЕЧАТКИ НАБОРА
 # ═══════════════════════════════════════════════════
 
 def marker_6_1(text: str, prob: int) -> tuple[str, int]:
-    """Пропуск буквы в слове от 5 букв."""
+    """Пропуск буквы в слове ≥ 6 букв, позиция 2..n-2, макс 1/абзац."""
+    count = 0
+    paragraphs = text.split('\n\n')
+    result_paragraphs = []
+
+    for para in paragraphs:
+        para_changed = False
+
+        def repl(m):
+            nonlocal count, para_changed
+            word = m.group(0)
+            if not para_changed and len(word) >= 6 and _coin(prob):
+                pos = random.randint(2, len(word) - 3)
+                count += 1
+                para_changed = True
+                return word[:pos] + word[pos + 1:]
+            return word
+
+        result_paragraphs.append(re.sub(r'[а-яёА-ЯЁ]{6,}', repl, para))
+
+    return '\n\n'.join(result_paragraphs), count
+
+
+def marker_6_2(text: str, prob: int) -> tuple[str, int]:
+    """Перестановка двух соседних букв в слове ≥ 6 букв, позиция 2..n-2."""
+    count = 0
+
+    def repl(m):
+        nonlocal count
+        word = m.group(0)
+        if len(word) >= 6 and _coin(prob):
+            pos = random.randint(2, len(word) - 3)
+            lst = list(word)
+            lst[pos], lst[pos + 1] = lst[pos + 1], lst[pos]
+            count += 1
+            return ''.join(lst)
+        return word
+
+    result = re.sub(r'[а-яёА-ЯЁ]{6,}', repl, text)
+    return result, count
+
+
+def marker_6_3(text: str, prob: int) -> tuple[str, int]:
+    """Замена на соседнюю клавишу ЙЦУКЕН (слово ≥ 5 букв, позиция 2..n-2)."""
     count = 0
 
     def repl(m):
@@ -629,73 +716,37 @@ def marker_6_1(text: str, prob: int) -> tuple[str, int]:
         word = m.group(0)
         if len(word) >= 5 and _coin(prob):
             pos = random.randint(2, len(word) - 3)
-            count += 1
-            return word[:pos] + word[pos + 1:]
-        return word
-
-    result = re.sub(r'[а-яёА-ЯЁ]{5,}', repl, text)
-    return result, count
-
-
-def marker_6_2(text: str, prob: int) -> tuple[str, int]:
-    """Перестановка двух соседних букв в слове от 4 букв."""
-    count = 0
-
-    def repl(m):
-        nonlocal count
-        word = m.group(0)
-        if len(word) >= 4 and _coin(prob):
-            pos = random.randint(1, len(word) - 2)
-            lst = list(word)
-            lst[pos], lst[pos + 1] = lst[pos + 1], lst[pos]
-            count += 1
-            return ''.join(lst)
-        return word
-
-    result = re.sub(r'[а-яёА-ЯЁ]{4,}', repl, text)
-    return result, count
-
-
-def marker_6_3(text: str, prob: int) -> tuple[str, int]:
-    """Замена на соседнюю клавишу ЙЦУКЕН."""
-    count = 0
-
-    def repl(m):
-        nonlocal count
-        word = m.group(0)
-        if len(word) >= 4 and _coin(prob):
-            pos = random.randint(1, len(word) - 2)
             adj = get_adjacent_key(word[pos])
             if adj:
                 count += 1
                 return word[:pos] + adj + word[pos + 1:]
         return word
 
-    result = re.sub(r'[а-яёА-ЯЁ]{4,}', repl, text)
+    result = re.sub(r'[а-яёА-ЯЁ]{5,}', repl, text)
     return result, count
 
 
 def marker_6_4(text: str, prob: int) -> tuple[str, int]:
-    """Удвоение буквы в слове от 4 букв."""
+    """Удвоение буквы в слове ≥ 5 букв."""
     count = 0
 
     def repl(m):
         nonlocal count
         word = m.group(0)
-        if len(word) >= 4 and _coin(prob):
+        if len(word) >= 5 and _coin(prob):
             pos = random.randint(1, len(word) - 2)
             count += 1
             return word[:pos] + word[pos] + word[pos:]
         return word
 
-    result = re.sub(r'[а-яёА-ЯЁ]{4,}', repl, text)
+    result = re.sub(r'[а-яёА-ЯЁ]{5,}', repl, text)
     return result, count
 
 
 def marker_6_5(text: str, prob: int) -> tuple[str, int]:
-    """Удвоение короткого слова."""
+    """Удвоение слова из whitelist: очень, давно, нет, да, ну, так, вот, уже, ещё."""
     count = 0
-    whitelist = ['я', 'и', 'в', 'на', 'не', 'но', 'за', 'по', 'от']
+    whitelist = ['очень', 'давно', 'нет', 'да', 'ну', 'так', 'вот', 'уже', 'ещё']
     pattern_str = '|'.join(whitelist)
 
     def repl(m):
@@ -714,10 +765,10 @@ def marker_6_5(text: str, prob: int) -> tuple[str, int]:
 
 
 # ═══════════════════════════════════════════════════
-# 7. РИТМ И СТРУКТУРА
+# 7. СТРУКТУРА
 # ═══════════════════════════════════════════════════
 
-def marker_7_1(text: str, prob: int) -> tuple[str, int]:
+def marker_7_2(text: str, prob: int) -> tuple[str, int]:
     """Слияние коротких абзацев."""
     count = 0
     paragraphs = text.split('\n\n')
@@ -739,7 +790,7 @@ def marker_7_1(text: str, prob: int) -> tuple[str, int]:
     return '\n\n'.join(result), count
 
 
-def marker_7_2(text: str, prob: int) -> tuple[str, int]:
+def marker_7_3(text: str, prob: int) -> tuple[str, int]:
     """Разбиение длинного абзаца."""
     count = 0
     paragraphs = text.split('\n\n')
@@ -757,7 +808,7 @@ def marker_7_2(text: str, prob: int) -> tuple[str, int]:
     return '\n\n'.join(result), count
 
 
-def marker_7_3(text: str, prob: int) -> tuple[str, int]:
+def marker_7_4(text: str, prob: int) -> tuple[str, int]:
     """Лишняя пустая строка между абзацами."""
     count = 0
     paragraphs = text.split('\n\n')
@@ -772,11 +823,11 @@ def marker_7_3(text: str, prob: int) -> tuple[str, int]:
 
 
 # ═══════════════════════════════════════════════════
-# 8. ЛЕКСИКА И СТИЛЬ
+# 8. ЛЕКСИКА
 # ═══════════════════════════════════════════════════
 
-def marker_8_1(text: str, prob: int) -> tuple[str, int]:
-    """Слеш вместо или."""
+def marker_8_7(text: str, prob: int) -> tuple[str, int]:
+    """Слэш вместо «или» (не в конструкции «или...или»)."""
     count = 0
 
     def repl(m):
@@ -786,12 +837,13 @@ def marker_8_1(text: str, prob: int) -> tuple[str, int]:
             return m.group(1) + '/' + m.group(2)
         return m.group(0)
 
-    result = re.sub(r'(\S+)\s+или\s+(\S+)', repl, text)
+    # Не заменяем в конструкции «или ... или»
+    result = re.sub(r'(\S+)\s+или\s+(\S+)(?!\s+или\b)', repl, text)
     return result, count
 
 
-def marker_8_2(text: str, prob: int) -> tuple[str, int]:
-    """Числительное -> цифра."""
+def marker_8_8(text: str, prob: int) -> tuple[str, int]:
+    """Числительное → цифра (им./вин. падеж)."""
     count = 0
     num_map = {
         'один': '1', 'одна': '1', 'одно': '1',
@@ -817,26 +869,83 @@ def marker_8_2(text: str, prob: int) -> tuple[str, int]:
 
 
 # ═══════════════════════════════════════════════════
-# РЕЕСТР ФУНКЦИЙ (связь id -> функция)
+# 10. ЭМОЦИОНАЛЬНЫЕ
+# ═══════════════════════════════════════════════════
+
+def marker_10_1(text: str, prob: int) -> tuple[str, int]:
+    """Слово КАПСОМ (3-8 букв, макс 1 на абзац)."""
+    count = 0
+    paragraphs = text.split('\n\n')
+    result_paragraphs = []
+
+    for para in paragraphs:
+        para_changed = False
+
+        def repl(m):
+            nonlocal count, para_changed
+            word = m.group(0)
+            if (not para_changed
+                    and 3 <= len(word) <= 8
+                    and word.islower()
+                    and _coin(prob)):
+                count += 1
+                para_changed = True
+                return word.upper()
+            return word
+
+        result_paragraphs.append(re.sub(r'[а-яё]{3,8}', repl, para))
+
+    return '\n\n'.join(result_paragraphs), count
+
+
+def marker_10_4(text: str, prob: int) -> tuple[str, int]:
+    """Скобка-смайл ) в конце предложения вместо точки (макс 1-2 на текст)."""
+    count = 0
+    max_count = 2
+
+    def repl(m):
+        nonlocal count
+        if count < max_count and _coin(prob):
+            count += 1
+            return ')'
+        return m.group(0)
+
+    # Заменяем точку в конце предложения (перед пробелом+заглавной или концом текста)
+    result = re.sub(r'\.(?=\s+[А-ЯЁ]|$)', repl, text)
+    return result, count
+
+
+# ═══════════════════════════════════════════════════
+# РЕЕСТР ФУНКЦИЙ (связь id → функция)
 # ═══════════════════════════════════════════════════
 
 MARKER_FUNCTIONS: dict[str, callable] = {
+    # 1. Регистр и капитализация
     "1.1": marker_1_1, "1.2": marker_1_2, "1.3": marker_1_3,
-    "1.4": marker_1_4, "1.5": marker_1_5,
+    "1.4": marker_1_4, "1.6": marker_1_6,
+    # 2. Лишние пробелы
     "2.1": marker_2_1, "2.2": marker_2_2, "2.3": marker_2_3,
     "2.4": marker_2_4, "2.5": marker_2_5, "2.6": marker_2_6,
     "2.7": marker_2_7, "2.8": marker_2_8, "2.9": marker_2_9,
+    # 3. Пропущенные пробелы
     "3.1": marker_3_1, "3.2": marker_3_2, "3.3": marker_3_3,
     "3.4": marker_3_4,
+    # 4. Пунктуация
     "4.1": marker_4_1, "4.2": marker_4_2, "4.3": marker_4_3,
     "4.4": marker_4_4, "4.5": marker_4_5, "4.6": marker_4_6,
     "4.7": marker_4_7, "4.8": marker_4_8, "4.9": marker_4_9,
     "4.10": marker_4_10, "4.11": marker_4_11, "4.12": marker_4_12,
+    # 5. Кавычки, тире, типографика
     "5.1": marker_5_1, "5.2": marker_5_2, "5.3": marker_5_3,
     "5.4": marker_5_4, "5.5": marker_5_5, "5.6": marker_5_6,
     "5.7": marker_5_7, "5.8": marker_5_8, "5.9": marker_5_9,
+    # 6. Опечатки набора
     "6.1": marker_6_1, "6.2": marker_6_2, "6.3": marker_6_3,
     "6.4": marker_6_4, "6.5": marker_6_5,
-    "7.1": marker_7_1, "7.2": marker_7_2, "7.3": marker_7_3,
-    "8.1": marker_8_1, "8.2": marker_8_2,
+    # 7. Структура
+    "7.2": marker_7_2, "7.3": marker_7_3, "7.4": marker_7_4,
+    # 8. Лексика
+    "8.7": marker_8_7, "8.8": marker_8_8,
+    # 10. Эмоциональные
+    "10.1": marker_10_1, "10.4": marker_10_4,
 }
