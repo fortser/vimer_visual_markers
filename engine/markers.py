@@ -22,9 +22,9 @@ from engine.keyboard_map import get_adjacent_key
 
 # ─── Утилиты ────────────────────────────────────────
 
-def _coin(prob: int) -> bool:
-    """Бросок монетки с вероятностью prob (0-100)."""
-    return random.randint(1, 100) <= prob
+def _coin(prob: float) -> bool:
+    """Бросок монетки с вероятностью prob (0-100, поддерживает дробные)."""
+    return random.random() * 100 < prob
 
 
 def _sentences(text: str) -> list[str]:
@@ -789,7 +789,7 @@ def marker_6_5(text: str, prob: int) -> tuple[str, int]:
     (?!\S)  = позиция конца строки или перед пробелом/\n.
     """
     count = 0
-    whitelist = ['очень', 'давно', 'нет', 'да', 'ну', 'так', 'вот', 'уже', 'ещё']
+    whitelist = ['очень', 'давно', 'нет', 'да', 'ну', 'так', 'вот', 'уже', 'ещё', 'еще']
     pattern_str = '|'.join(whitelist)
 
     def repl(m):
@@ -880,8 +880,10 @@ def marker_8_7(text: str, prob: int) -> tuple[str, int]:
             return m.group(1) + '/' + m.group(2)
         return m.group(0)
 
-    # Не заменяем в конструкции «или ... или»
-    result = re.sub(r'(\S+)\s+или\s+(\S+)(?!\s+или\b)', repl, text)
+    # Не заменяем в конструкции «или ... или».
+    # \b после группы 2 запрещает backtrack внутрь слова (иначе (\S+) мог
+    # откатиться до неполного слова и обойти lookahead).
+    result = re.sub(r'(\S+)\s+или\s+(\S+)\b(?!\s+или\b)', repl, text)
     return result, count
 
 

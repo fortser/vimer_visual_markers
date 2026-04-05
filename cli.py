@@ -72,8 +72,9 @@ def main():
 
     if args.list_markers:
         for m in MARKER_REGISTRY:
+            prob_str = str(int(m.default_prob)) if m.default_prob == int(m.default_prob) else str(m.default_prob)
             print(f"  {m.id:6s}  {m.name:35s}  "
-                  f"(default: {m.default_prob:3d}%)  {m.description}")
+                  f"(default: {prob_str:>3}%)  {m.description}")
         return
 
     if not args.input:

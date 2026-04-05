@@ -45,7 +45,7 @@ APPLY_ORDER: list[str] = [
 
 
 class TextProcessor:
-    def __init__(self, profile: dict[str, int], seed: int | None = None,
+    def __init__(self, profile: dict[str, float], seed: int | None = None,
                  multiplier: float = 1.0):
         """
         profile: {marker_id: probability 0-100}
@@ -57,10 +57,10 @@ class TextProcessor:
         self.multiplier = multiplier
         self.stats: dict[str, int] = {}
 
-    def _effective_prob(self, marker_id: str) -> int:
+    def _effective_prob(self, marker_id: str) -> float:
         """Получить эффективную вероятность с учётом множителя."""
         base = self.profile.get(marker_id, 0)
-        return min(100, max(0, int(base * self.multiplier)))
+        return min(100.0, max(0.0, base * self.multiplier))
 
     def process(self, text: str) -> str:
         """Применяет все активные маркеры и возвращает модифицированный текст."""

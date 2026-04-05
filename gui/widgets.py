@@ -9,6 +9,13 @@ import customtkinter as ctk
 from engine.registry import MarkerInfo
 
 
+def _fmt_prob(val: float) -> str:
+    """Форматирует вероятность: целые — без точки ("6"), дробные — как есть ("0.5")."""
+    if val == int(val):
+        return str(int(val))
+    return str(round(val, 4)).rstrip('0')
+
+
 class MarkerRow(ctk.CTkFrame):
     """
     Одна строка маркера:
@@ -124,51 +131,51 @@ class MarkerRow(ctk.CTkFrame):
             return
         self._updating = True
         try:
-            raw = self.entry_var.get().strip()
-            val = int(raw) if raw else 0
-            val = max(0, min(100, val))
-            self._value.set(val)
-            self.entry_var.set(str(val))
+            raw = self.entry_var.get().strip().replace(',', '.')
+            val = float(raw) if raw else 0.0
+            val = max(0.0, min(100.0, val))
+            self._value.set(int(round(val)))  # слайдер — только целые
+            self.entry_var.set(_fmt_prob(val))
             if val > 0 and not self._enabled.get():
                 self._enabled.set(True)
                 self.slider.configure(state="normal")
                 self.entry.configure(state="normal")
         except ValueError:
             val = self._value.get()
-            self.entry_var.set(str(val))
+            self.entry_var.set(_fmt_prob(float(val)))
         self._updating = False
 
     def _on_entry_up(self, event):
         """Стрелка вверх — +1."""
         try:
-            val = min(100, int(self.entry_var.get()) + 1)
-            self._value.set(val)
-            self.entry_var.set(str(val))
+            val = min(100.0, float(self.entry_var.get()) + 1)
+            self._value.set(int(round(val)))
+            self.entry_var.set(_fmt_prob(val))
         except ValueError:
             pass
 
     def _on_entry_down(self, event):
         """Стрелка вниз — -1."""
         try:
-            val = max(0, int(self.entry_var.get()) - 1)
-            self._value.set(val)
-            self.entry_var.set(str(val))
+            val = max(0.0, float(self.entry_var.get()) - 1)
+            self._value.set(int(round(val)))
+            self.entry_var.set(_fmt_prob(val))
         except ValueError:
             pass
 
-    def get_value(self) -> int:
+    def get_value(self) -> float:
         if not self._enabled.get():
-            return 0
+            return 0.0
         try:
-            return max(0, min(100, int(self.entry_var.get())))
+            return max(0.0, min(100.0, float(self.entry_var.get())))
         except ValueError:
-            return self._value.get()
+            return float(self._value.get())
 
-    def set_value(self, val: int):
-        val = max(0, min(100, val))
+    def set_value(self, val: float):
+        val = max(0.0, min(100.0, float(val)))
         self._updating = True
-        self._value.set(val)
-        self.entry_var.set(str(val))
+        self._value.set(int(round(val)))  # слайдер — только целые
+        self.entry_var.set(_fmt_prob(val))
         self._enabled.set(val > 0)
         self._updating = False
         self._on_toggle()

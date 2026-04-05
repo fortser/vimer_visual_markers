@@ -12,7 +12,7 @@ class MarkerInfo:
     name: str          # Краткое имя
     category: str      # Имя категории
     description: str   # Описание + пример
-    default_prob: int  # Вероятность по умолчанию 0-100
+    default_prob: float  # Вероятность по умолчанию 0-100 (поддерживает дробные)
 
 
 # ──────────────────────────────────────────────
@@ -371,7 +371,7 @@ def get_marker_by_id(marker_id: str) -> MarkerInfo | None:
     return None
 
 
-def get_default_profile() -> dict[str, int]:
+def get_default_profile() -> dict[str, float]:
     """Возвращает словарь {marker_id: default_prob}.
 
     ВАЖНО: значения default_prob в MarkerInfo синхронизированы с
