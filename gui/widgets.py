@@ -7,6 +7,7 @@
 
 import customtkinter as ctk
 from engine.registry import MarkerInfo
+from engine import CATEGORIES, get_markers_by_category
 
 
 def _fmt_prob(val: float) -> str:
@@ -431,3 +432,71 @@ class ProfileBar(ctk.CTkFrame):
 
     def update_profiles(self, profiles_list: list[str]):
         self.combo.configure(values=profiles_list)
+
+
+class StatsWindow(ctk.CTkToplevel):
+    """Всплывающий отчёт об изменениях после обработки текста."""
+
+    def __init__(self, parent, stats: dict[str, int], profile: dict[str, float]):
+        super().__init__(parent)
+        self.title("Отчёт об изменениях")
+        self.geometry("500x580")
+        self.minsize(400, 300)
+        self.resizable(True, True)
+        self.transient(parent)
+        self.attributes("-topmost", True)
+
+        total = sum(stats.values())
+
+        # ── Заголовок ──
+        header_frame = ctk.CTkFrame(self, fg_color="transparent")
+        header_frame.pack(fill="x", padx=16, pady=(14, 6))
+
+        ctk.CTkLabel(
+            header_frame,
+            text=f"Всего изменений: {total}",
+            font=ctk.CTkFont(size=15, weight="bold"),
+            anchor="w",
+        ).pack(side="left")
+
+        ctk.CTkButton(
+            header_frame, text="Закрыть",
+            width=90, height=28,
+            command=self.destroy,
+        ).pack(side="right")
+
+        # ── Разделитель ──
+        ctk.CTkFrame(self, height=1, fg_color=("gray70", "gray35")).pack(
+            fill="x", padx=16, pady=(0, 6))
+
+        # ── Прокручиваемое тело ──
+        scroll = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        scroll.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+
+        for cat_name in CATEGORIES:
+            markers = get_markers_by_category(cat_name)
+            active = [m for m in markers if profile.get(m.id, 0) > 0]
+            if not active:
+                continue
+
+            # Заголовок категории
+            ctk.CTkLabel(
+                scroll,
+                text=f"  {cat_name}",
+                font=ctk.CTkFont(size=12, weight="bold"),
+                anchor="w",
+                fg_color=("gray80", "gray25"),
+                corner_radius=4,
+                height=26,
+            ).pack(fill="x", padx=4, pady=(8, 2))
+
+            for marker in active:
+                count = stats.get(marker.id, 0)
+                color = ("gray10", "gray90") if count > 0 else ("gray50", "gray55")
+                ctk.CTkLabel(
+                    scroll,
+                    text=f"    {marker.id}  {marker.name}:  {count} изм.",
+                    anchor="w",
+                    font=ctk.CTkFont(size=12),
+                    text_color=color,
+                ).pack(fill="x", padx=4, pady=1)

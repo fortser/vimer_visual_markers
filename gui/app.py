@@ -10,8 +10,8 @@ from engine import (
     TextProcessor, CATEGORIES,
     get_markers_by_category, get_default_profile,
 )
-from engine.registry import MARKER_REGISTRY, get_marker_by_id
-from gui.widgets import CategoryFrame, ProfileBar
+from engine.registry import MARKER_REGISTRY
+from gui.widgets import CategoryFrame, ProfileBar, StatsWindow
 from utils import (
     read_text_file, write_text_file, load_profile, save_profile,
     list_profiles, get_sample_text, PROFILES_DIR,
@@ -32,6 +32,7 @@ class App(ctk.CTk):
 
         self.current_profile_name = "default"
         self.category_frames: list[CategoryFrame] = []
+        self._stats_window: StatsWindow | None = None
 
         self._build_menu()
         self._build_layout()
@@ -185,6 +186,15 @@ class App(ctk.CTk):
             command=self._process_text,
         )
         self.process_btn.pack(side="left", padx=(0, 12))
+
+        self.show_report_var = ctk.BooleanVar(value=True)
+        self.show_report_cb = ctk.CTkCheckBox(
+            btn_frame, text="Показывать отчёт",
+            variable=self.show_report_var,
+            font=ctk.CTkFont(size=12),
+            width=140,
+        )
+        self.show_report_cb.pack(side="left", padx=(0, 12))
 
         self.stats_label = ctk.CTkLabel(
             btn_frame, text="",
@@ -354,21 +364,19 @@ class App(ctk.CTk):
         self.output_text.delete("1.0", "end")
         self.output_text.insert("1.0", result)
 
-        # Статистика
+        # Краткая строка статистики
         active_markers = len(stats)
-        if stats:
-            details_parts = []
-            for mid in sorted(stats.keys()):
-                info = get_marker_by_id(mid)
-                name = info.name if info else mid
-                details_parts.append(f"{mid} {name}: {stats[mid]}")
-            details = " | ".join(details_parts)
-        else:
-            details = "нет изменений"
-
         self.stats_label.configure(
-            text=f"\u2714 Изменений: {total} | "
-                 f"Активных маркеров: {active_markers} | {details}")
+            text=f"\u2714 Изменений: {total} | Активных маркеров: {active_markers}")
+
+        # Всплывающий отчёт
+        if self.show_report_var.get():
+            if self._stats_window is not None:
+                try:
+                    self._stats_window.destroy()
+                except Exception:
+                    pass
+            self._stats_window = StatsWindow(self, stats, profile)
 
     # ─── Профили ──────────────────────────
     def _get_current_values(self) -> dict[str, int]:

@@ -430,7 +430,7 @@ def marker_4_5(text: str, prob: int) -> tuple[str, int]:
             return '...'
         return m.group(0)
 
-    result = re.sub(r'\.(?=\s|$)(?!\.)', repl, text)
+    result = re.sub(r'(?<!\.)\.(?=\s|$)(?!\.)', repl, text)
     return result, count
 
 
